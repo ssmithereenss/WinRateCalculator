@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kalkulator Win Rate</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #333;
+            color: white;
+            text-align: center;
+        }
+        .container {
+            width: 380px;
+            margin: auto;
+            padding: 20px;
+            border-radius: 10px;
+            background-color: #444;
+        }
+        h1 {
+            margin-bottom: 20px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #4CAF50;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .error {
+            color: red;
+            display: none;
+        }
+        canvas {
+            margin-top: 20px;
+        }
+        .tips {
+            margin-top: 20px;
+            font-size: 14px;
+            background-color: #555;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .copyright {
+            margin-top: 20px;
+            font-size: 12px;
+            color: #aaa;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Kalkulator Win Rate</h1>
+
+    <input type="text" id="currentWinRate" placeholder="Masukkan win rate saat ini (%)">
+    <div id="currentWinRateError" class="error">Masukkan win rate yang benar antara 0 dan 100.</div>
+
+    <input type="text" id="totalMatches" placeholder="Masukkan total pertandingan">
+    <div id="totalMatchesError" class="error">Masukkan jumlah pertandingan yang valid lebih dari 0.</div>
+
+    <input type="text" id="targetWinRate" placeholder="Masukkan win rate target (%)">
+    <div id="targetWinRateError" class="error">Masukkan win rate target yang benar antara 0 dan 100.</div>
+
+    <button id="calculateButton">Hitung Pertandingan</button>
+
+    <p id="result"></p>
+
+    <canvas id="winRateChart" width="400" height="200"></canvas>
+
+    <!-- Tips untuk tujuan win rate -->
+    <div class="tips" id="tips"></div>
+
+    <!-- Copyright -->
+    <div class="copyright">
+        © 2024 Kalkulator Win Rate oleh Dicky Muhammad Yusuf / Smithereens.
+    </div>
+</div>
+
+<script>
+document.getElementById('calculateButton').addEventListener('click', calculateMatches);
+
+let winRateChart = null;
+
+function calculateMatches() {
+    const currentWinRate = parseFloat(document.getElementById('currentWinRate').value.replace(",", "."));
+    const totalMatches = parseInt(document.getElementById('totalMatches').value);
+    const targetWinRate = parseFloat(document.getElementById('targetWinRate').value.replace(",", "."));
+
+    // Validasi input
+    let valid = true;
+
+    if (isNaN(currentWinRate) || currentWinRate < 0 || currentWinRate > 100) {
+        document.getElementById('currentWinRateError').style.display = "block";
+        valid = false;
+    } else {
+        document.getElementById('currentWinRateError').style.display = "none";
+    }
+
+    if (isNaN(totalMatches) || totalMatches <= 0) {
+        document.getElementById('totalMatchesError').style.display = "block";
+        valid = false;
+    } else {
+        document.getElementById('totalMatchesError').style.display = "none";
+    }
+
+    if (isNaN(targetWinRate) || targetWinRate < 0 || targetWinRate > 100) {
+        document.getElementById('targetWinRateError').style.display = "block";
+        valid = false;
+    } else {
+        document.getElementById('targetWinRateError').style.display = "none";
+    }
+
+    if (!valid) return;
+
+    const currentWins = totalMatches * (currentWinRate / 100);
+    let requiredWins = 0;
+    let resultText = '';
+
+    // Hitung jumlah kemenangan yang dibutuhkan untuk mencapai target winrate
+    if (targetWinRate > currentWinRate && targetWinRate < 100) {
+        requiredWins = Math.ceil((targetWinRate / 100 * (totalMatches + requiredWins)) - currentWins);
+        resultText = `Anda perlu memenangkan ${requiredWins} pertandingan lagi untuk mencapai win rate ${targetWinRate}%.`;
+    } else if (targetWinRate <= currentWinRate) {
+        resultText = `Selamat! Anda sudah mencapai atau melebihi target win rate ${targetWinRate}%. Tidak perlu memenangkan pertandingan tambahan untuk mencapai target ini.`;
+    } else if (targetWinRate === 100) {
+        requiredWins = totalMatches - currentWins;
+        resultText = `Anda perlu memenangkan semua pertandingan yang tersisa untuk mencapai win rate 100%.`;
+    }
+
+    document.getElementById('result').innerText = resultText;
+
+    // Tampilkan tips berdasarkan win rate target
+    displayTips(targetWinRate);
+
+    // Perbarui chart
+    simulateWinRateProgress(totalMatches, currentWinRate, requiredWins, targetWinRate);
+}
+
+function simulateWinRateProgress(totalMatches, currentWinRate, requiredWins, targetWinRate) {
+    const simulationData = [];
+    const labels = [];
+
+    let totalWins = totalMatches * (currentWinRate / 100);
+
+    // Simulasi progress hingga mencapai target winrate
+    for (let i = 0; i <= requiredWins; i++) {
+        const newTotalMatches = totalMatches + i;
+        const newWinRate = (totalWins + i) / newTotalMatches * 100;
+
+        simulationData.push(newWinRate.toFixed(2));
+        labels.push(`Pertandingan ${newTotalMatches}`);
+    }
+
+    updateChart(labels, simulationData, targetWinRate);
+}
+
+function updateChart(labels, simulationData, targetWinRate) {
+    const ctx = document.getElementById('winRateChart').getContext('2d');
+
+    // Hapus chart lama jika sudah ada
+    if (winRateChart !== null) {
+        winRateChart.destroy();
+    }
+
+    // Buat grafik garis untuk visualisasi win rate progress
+    winRateChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: `Progress Menuju Target ${targetWinRate}%`,
+                data: simulationData,
+                borderColor: '#FF9800',
+                backgroundColor: 'rgba(255, 152, 0, 0.2)',
+                fill: true
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toFixed(2) + "%"; // Mengatasi masalah angka desimal
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// Fungsi untuk menampilkan tips berdasarkan win rate target
+function displayTips(targetWinRate) {
+    const tipsElement = document.getElementById('tips');
+    let tipsText = '';
+
+    if (targetWinRate < 50) {
+        tipsText = "Untuk target win rate rendah (< 50%), pastikan Anda bermain secara konsisten dan tingkatkan keahlian dasar.";
+    } else if (targetWinRate >= 50 && targetWinRate <= 70) {
+        tipsText = "Dengan target win rate sedang (50-70%), fokuslah pada strategi dan kerja tim untuk memenangkan lebih banyak pertandingan.";
+    } else if (targetWinRate > 70 && targetWinRate < 100) {
+        tipsText = "Target win rate tinggi (> 70%) memerlukan kemampuan luar biasa dan strategi matang. Pastikan Anda berlatih dengan giat.";
+    } else if (targetWinRate === 100) {
+        tipsText = "Target win rate 100% sangat menantang. Anda harus memenangkan setiap pertandingan dari sekarang.";
+    }
+
+    tipsElement.innerText = tipsText;
+}
+</script>
+
+</body>
+</html>
